@@ -50,16 +50,19 @@ instance FromJSON TelegramResponse
 instance ToJSON TelegramResponse
 
 -- todo: move token to .env
-token = ""
+token = "1975796426:AAGiifTuCe5-PN25Uzc28omSHFxA37GmphI"
 
 endpoint = "https://api.telegram.org/bot" ++ token ++ "/"
 
-getResponse :: BC.ByteString -> Either String TelegramResponse
-getResponse = eitherDecode
+getResponse :: Response B8.ByteString -> Either String TelegramResponse
+getResponse responseJSON = eitherDecode $ fromStrict $ getResponseBody responseJSON
 
 getUpdateId :: Either String TelegramResponse -> Either String Integer
-getUpdateId (Right res) = Right (update_id $ head $ result res)
-getUpdateId (Left err) = Left err
+getUpdateId (Right res) = if null results then Left "Results array is empty" else Right (update_id $ head results)
+  where
+    results = result res
+getUpdateId (Left err) = Left $ "getUpdateId error: " ++ err
+
 
 incrementOffset :: Integer -> Integer
 incrementOffset offset = offset + 1
@@ -72,15 +75,31 @@ getChatIdAndMessageText res = (chatId, messageText)
     messageText = msg & text
 
 
-sendMessage (chatId, messageText) = do
+sendMessage (chatId, messageText) =
   httpBS (parseRequest_ (endpoint ++ "sendMessage?chat_id=" ++ show chatId ++ "&text=" ++ show messageText))
 
-main :: IO ()
-main = do
-  responseJSON <- httpBS (parseRequest_ (endpoint ++ "getUpdates"))
-  let updatesResponse = getResponse $ fromStrict $ getResponseBody responseJSON
+reply :: Response B8.ByteString -> IO (Either String TelegramResponse)
+reply responseJSON = do
+  let updatesResponse = getResponse responseJSON
   case updatesResponse of
-        (Left err) -> do putStrLn err
+        (Left err) -> putStrLn err
         (Right response) -> do
           responseJSON <- sendMessage (getChatIdAndMessageText response)
           B8.putStrLn $ getResponseBody responseJSON
+  return updatesResponse
+
+checkAndReply :: Maybe Integer -> IO ()
+checkAndReply offset = do
+  responseJSON <- case offset of
+    Nothing -> httpBS (parseRequest_ (endpoint ++ "getUpdates"))
+    Just x -> httpBS (parseRequest_ (endpoint ++ "getUpdates" ++ "?offset=" ++ show x))
+  updatesResponse <- reply responseJSON
+  case getUpdateId $ getResponse responseJSON of
+    Left err -> error err
+    Right updateId ->
+      checkAndReply (Just $ incrementOffset updateId)
+
+main :: IO ()
+main =
+  checkAndReply Nothing
+
