@@ -41,6 +41,7 @@ executable echobot
   main-is: Main.hs
   other-modules:
       Telegram
+      VK
       Paths_echobot
   hs-source-dirs:
       app
