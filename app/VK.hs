@@ -41,9 +41,32 @@ getLongPollServer (GetLongPollRequest vkGroupId vkGroupAccessToken vkAPIVersion)
   B8.putStrLn $ getResponseBody response
   putStrLn $ createEndpoint "groups.getLongPollServer" ++ createParams [("group_id", show vkGroupId), ("access_token", vkGroupAccessToken), ("v", vkAPIVersion)]
 
-runVKBot :: IO ()
-runVKBot = getLongPollServer $ GetLongPollRequest {
-  vkGroupId = 0,
-  vkGroupAccessToken = "",
-  vkAPIVersion = ""
+
+data CheckForUpdatesRequest = CheckForUpdatesRequest {
+  server :: String,
+  key :: String,
+  ts :: String,
+  wait :: Integer
 }
+
+checkForUpdates :: CheckForUpdatesRequest -> IO ()
+checkForUpdates (CheckForUpdatesRequest server key ts wait) = do
+  let requestURL = server ++ "?act=a_check&key=" ++ key ++ "&ts=" ++ ts ++ "&wait=" ++ show wait
+  response <- httpBS $ parseRequest_ requestURL
+  B8.putStrLn $ getResponseBody response
+  putStrLn requestURL
+
+-- runVKBot :: IO ()
+-- runVKBot = getLongPollServer $ GetLongPollRequest {
+--   vkGroupId = 0,
+--   vkGroupAccessToken = "",
+--   vkAPIVersion = ""
+-- }
+
+-- runVKBot :: IO ()
+-- runVKBot = checkForUpdates $ CheckForUpdatesRequest {
+--   server = "",
+--   ts = "3",
+--   key = ""
+--   wait = 25
+-- }
